@@ -1,22 +1,23 @@
 from ursina import *
+import math
 
 app = Ursina()
 
-# Set up camera
 camera.orthographic = True
-camera.fov = 10  # Field of view for orthographic camera
+camera.fov = 10
 
-# Create menus
 menu_parent = Entity()
 settings_menu = Entity(enabled=False)
+grass_entities = []
 
-# Game entities
-grassinstance = Entity(model='quad', color=color.green, scale=(20, 20), y=-0.25, enabled=False)
-player = Entity(model='quad', color=color.orange, scale=0.5, y=1, enabled=False)
+wandering_trader_not_minecraft_stolen_dont_sue_me = Entity(model='quad', color=color.green, scale=(0.3, 0.5), position=(3,3,1), z=1, enabled=False)
+
+grassinstance = Entity(model='quad', z=1, color=color.green, scale=(0.05, 0.1), y=-0.25, enabled=False)
+player = Entity(model='quad', z=1, color=color.orange, scale=(0.3, 0.5), y=1, enabled=False)
 
 playerspeed = 5
 
-# Background
+background2 = Entity(model='quad', z=-100, scale=(50, 30), color=color.hex("#615F3C"), enabled=False)
 background = Panel(
     parent=menu_parent,
     scale=999,
@@ -24,7 +25,6 @@ background = Panel(
     z=1  
 )
 
-# Music system
 music_files = [
     r'music/ready-set-drift-michael-grubb-main-version-24555-02-59.mp3',
     r'music/space-ranger-moire-main-version-03-04-10814.mp3',
@@ -34,6 +34,24 @@ music_files = [
 music_index = 0
 current_music = None
 volume_slider = None
+
+def grassgen(num_grass=20, area_size=50):
+    global grass_entities
+    for g in grass_entities:
+        destroy(g)
+    grass_entities.clear()
+    for _ in range(num_grass):
+        x = random.uniform(-area_size, area_size)
+        y = random.uniform(-area_size, area_size)
+        grass = Entity(
+            model='quad',
+            color=color.green,
+            scale=(0.05, 0.1),
+            position=(x, y, 0),
+            rotation_z=random.uniform(-20, 20),
+            collider='box'
+        )
+        grass_entities.append(grass)
 
 def play_next_song():
     global music_index, current_music
@@ -53,12 +71,30 @@ def play_next_song():
 
     current_music.update = check_end
 
+def tradercode(move_distance=3, speed=2):
+    wandering_trader_not_minecraft_stolen_dont_sue_me.position = (player.x, player.y + 2, 0)
+    wandering_trader_not_minecraft_stolen_dont_sue_me.enabled = True
+    wandering_trader_not_minecraft_stolen_dont_sue_me.base_x = player.x
+    wandering_trader_not_minecraft_stolen_dont_sue_me.base_y = player.y + 2
+
+    def trader_update():
+        t = time.time() * speed
+        offset = math.sin(t) * move_distance
+        wandering_trader_not_minecraft_stolen_dont_sue_me.x = wandering_trader_not_minecraft_stolen_dont_sue_me.base_x + offset
+        wandering_trader_not_minecraft_stolen_dont_sue_me.y = wandering_trader_not_minecraft_stolen_dont_sue_me.base_y
+
+    wandering_trader_not_minecraft_stolen_dont_sue_me.update = trader_update
+
 def start_game():
     menu_parent.enabled = False
     player.enabled = True
     grassinstance.enabled = True
-    # Set initial camera position
     camera.position = (player.x, player.y, -10)
+    background2.enabled=True
+    background.enabled=False
+    grassgen(150, 12)
+    wandering_trader_not_minecraft_stolen_dont_sue_me.enabled=True
+    tradercode()
 
 def quit_game():
     application.quit()
@@ -72,8 +108,8 @@ def back_to_menu():
     menu_parent.enabled = True
 
 def LoadMainMenu():
-    Text("Celestial Combat", parent=menu_parent, scale=3.5, y=3.5, x=-3.75, z=0, font='Bitcountprop.ttf')
-    Text("V1.1", parent=menu_parent, scale=3, y=2.5, x=-0.75, z=0, font='Bitcountprop.ttf')
+    Text("Celestial Combat", parent=menu_parent, scale=35, y=3.5, x=-3.75, z=0, font='Bitcountprop.ttf')
+    Text("V1.1", parent=menu_parent, scale=30, y=2.5, x=-0.75, z=0, font='Bitcountprop.ttf')
 
     start_btn = Button(text='Start', scale=(2.5, 1), y=1, parent=menu_parent, on_click=start_game)
     start_btn.text_entity.font = 'Bitcountprop.ttf'
@@ -87,9 +123,9 @@ def LoadMainMenu():
 def LoadSettingsMenu():
     global volume_slider, current_music
 
-    Text("Settings", parent=settings_menu, scale=2, y=0.3, z=0, font='Bitcountprop.ttf')
+    Text("Settings", parent=settings_menu, scale=35, y=2,x = -2, z=0, font='Bitcountprop.ttf')
 
-    volume_slider = Slider(scale=4, min=0, max=1, default=0.5, step=0.01, y=0.1, parent=settings_menu)
+    volume_slider = Slider(scale=20, min=0, max=10, default=0.5, step=0.1, y=0.1, x = -5, parent=settings_menu)
 
     def on_volume_change():
         if current_music:
@@ -97,35 +133,40 @@ def LoadSettingsMenu():
 
     volume_slider.on_value_changed = on_volume_change
 
-    Text("Volume", parent=settings_menu, y=0.2, scale=1, z=0, font='Bitcountprop.ttf')
+    Text("Volume", parent=settings_menu, y=-0.5, scale=10, z=0, x=-0.5,font='Bitcountprop.ttf')
 
-    back_btn = Button(text='Back', scale=(0.3, 0.1), y=-0.3, parent=settings_menu, on_click=back_to_menu)
+    back_btn = Button(text='Back', scale=(2.5, 1.5), y=-2, parent=settings_menu, on_click=back_to_menu)
     back_btn.text_entity.font = 'Bitcountprop.ttf'
 
 def update():
-    # Player movement
     if player.enabled:
         x = held_keys['d'] - held_keys['a']
         y = held_keys['w'] - held_keys['s']
         move = Vec2(x, y)
-        
-        if move.length() > 0:
-            move = move.normalized() * playerspeed * time.dt
-            player.position += Vec3(move.x, move.y, 0)
-        
-        # Camera follows player with smooth transition
-        camera.position = lerp(camera.position, (player.x, player.y, -10), time.dt * 5)
 
-# Initialize menus
+        speed = playerspeed
+
+        for grass in grass_entities:
+            if player.intersects(grass).hit:
+                speed *= 0.6
+                break
+
+        if move.length() > 0:
+            move = move.normalized() * speed * time.dt
+            player.position += Vec3(move.x, move.y, 0)
+            player.rotation_z = lerp(player.rotation_z, x * 10, time.dt * 10)
+        else:
+            player.rotation_z = lerp(player.rotation_z, 0, time.dt * 10)
+        camera.position = lerp(camera.position, (player.x, player.y, -10), time.dt * 5)
+        background2.position = Vec3(camera.position.x, camera.position.y, background2.z)
+
 LoadMainMenu()
 LoadSettingsMenu()
 
-# Start music
 play_next_song()
 
-# Window settings
 window.title = 'Celestial-Combat V1.1'
 window.borderless = False
-window.fullscreen = False
+window.fullscreen = True
 
 app.run()
