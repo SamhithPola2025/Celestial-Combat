@@ -74,13 +74,43 @@ fight_text.z = 0.1
 attack_button.z = 0.1
 run_button.z = 0.1
 
-wandering_trader = Entity(model='quad', color=color.green, scale=(0.3, 0.5),
+wandering_trader = Entity(model='quad', texture='sprites\enemy', scale=(0.8, 0.9),
                           position=(3,3,1), collider='box', enabled=False)
 
-player = Entity(model='quad', color=color.orange, scale=(0.3, 0.5), y=1,
+player = Entity(model='quad', texture='sprites\player', scale=(0.8, 1), y=1,
                 collider='box', enabled=False)
 
 playerspeed = 5
+
+attackoptionsdialogue = Panel(parent=fight_background, enabled=False, scale=(6, 3))
+attack1button = Button(
+    parent = attackoptionsdialogue,
+    enabled = False,
+    scale = (2, 1),
+    color=color.hex("#b1a022"),
+    text='Skip turn',
+    font='Bitcountprop.tff'
+)
+attack2button = Button(
+    parent= attackoptionsdialogue,
+    enabled = False,
+    scale = (2, 1),
+    color=color.hex('#b1a022'),
+    text='Fire ball',
+    #attack strength 25
+    #Uses per fight: 3
+    font='Bitcountprop.tff'
+)
+attack3button= Button(
+    parent= attackoptionsdialogue,
+    enabled = False,
+    scale=(2,1),
+    color=color.hex('#b1a022'),
+    font='Bitcountprop.tff',
+    text='Push'
+    #Damage 10
+    # Uses per fight: 7
+)
 
 background2 = Entity(model='quad', z=-100, scale=(50, 30), color=color.hex("#615F3C"), enabled=False)
 background = Panel(parent=menu_parent, scale=999, color=color.hex('#218eb4'), z=1)
