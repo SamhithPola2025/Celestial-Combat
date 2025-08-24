@@ -9,13 +9,13 @@ camera.fov = 10
 menu_parent = Entity()
 settings_menu = Entity(enabled=False)
 grass_entities = []
-fight_window = Entity(parent=camera.ui, enabled=False,z=10)
+fight_window = Entity(parent=camera.ui, enabled=False, z=10)
 fight_text = Text(
     'Battle!',
     parent=fight_window,
     y=0.35,
     scale=2,
-    origin=(0,0),
+    origin=(0, 0),
     color=color.white,
     font='Bitcountprop.ttf',
 )
@@ -34,6 +34,51 @@ fight_background = Panel(
     color=color.blue,
     enabled=False
 )
+
+# ----- fight buttons -----
+attackoptionsdialogue = Panel(
+    parent=fight_window,
+    enabled=False,
+    scale=(6, 3),
+    color=color.hex("#333333aa")  # Semi-transparent dark background
+)
+
+# Fix the attack options dialogue positioning
+attackoptionsdialogue.position = (0, -0.2)  # Center it vertically, slightly below center
+attackoptionsdialogue.z = -1  # Make sure it's above the background but below text
+
+attack1button = Button(
+    parent=attackoptionsdialogue,
+    enabled=False,
+    scale=(2, 1),
+    color=color.hex("#b1a022"),
+    text='Skip turn',
+    font='Bitcountprop.ttf'
+)
+
+attack2button = Button(
+    parent=attackoptionsdialogue,
+    enabled=False,
+    scale=(2, 1),
+    color=color.hex('#b1a022'),
+    text='Fire ball',
+    font='Bitcountprop.ttf'
+)
+
+attack3button = Button(
+    parent=attackoptionsdialogue,
+    enabled=False,
+    scale=(2, 1),
+    color=color.hex('#b1a022'),
+    text='Push',
+    font='Bitcountprop.ttf'
+)
+
+# Position the attack buttons within the dialogue
+attack1button.position = (-1.2, 0.4)
+attack2button.position = (0, 0.4)
+attack3button.position = (1.2, 0.4)
+attack1button.z = attack2button.z = attack3button.z = -2  # Ensure buttons are above the panel
 
 attack_button = Button(
     text='Attack',
@@ -57,105 +102,130 @@ run_button = Button(
     pressed_color=color.blue,
 )
 
-player_health = 100
-enemy_health = 100
-fight_active = False
-
-#fight_bg = Panel(
-    #parent=fight_window,
-   # scale=(2.5, 1.5),
-  #  color=color.rgba(0,0,0,180),
- #   z=1
-#)
-
-#fight_bg.z = -1
-fight_window.z = 100  # put the entire fight window on top of all menus
+fight_window.z = 100
 fight_text.z = 0.1
 attack_button.z = 0.1
 run_button.z = 0.1
 
-wandering_trader = Entity(model='quad', texture='sprites\enemy', scale=(0.8, 0.9),
+wandering_trader = Entity(model='quad', texture='sprites/enemy', scale=(0.8, 0.9),
                           position=(3,3,1), collider='box', enabled=False)
 
-player = Entity(model='quad', texture='sprites\player', scale=(0.8, 1), y=1,
+player = Entity(model='quad', texture='sprites/player', scale=(0.8, 1), y=1,
                 collider='box', enabled=False)
 
 playerspeed = 5
+player_health = 100
+enemy_health = 100
+fight_active = False
+player_turn = True  # turn-based flag
 
-attackoptionsdialogue = Panel(parent=fight_background, enabled=False, scale=(6, 3))
-attack1button = Button(
-    parent = attackoptionsdialogue,
-    enabled = False,
-    scale = (2, 1),
-    color=color.hex("#b1a022"),
-    text='Skip turn',
-    font='Bitcountprop.tff'
-)
-attack2button = Button(
-    parent= attackoptionsdialogue,
-    enabled = False,
-    scale = (2, 1),
-    color=color.hex('#b1a022'),
-    text='Fire ball',
-    #attack strength 25
-    #Uses per fight: 3
-    font='Bitcountprop.tff'
-)
-attack3button= Button(
-    parent= attackoptionsdialogue,
-    enabled = False,
-    scale=(2,1),
-    color=color.hex('#b1a022'),
-    font='Bitcountprop.tff',
-    text='Push'
-    #Damage 10
-    # Uses per fight: 7
+# player health display
+player_health_text = Text(
+    f"Player HP: {player_health}",
+    origin=(0.5, -0.5),
+    position=(-0.8, 0.45),
+    scale=2,
+    font='Bitcountprop.ttf'
 )
 
-background2 = Entity(model='quad', z=-100, scale=(50, 30), color=color.hex("#615F3C"), enabled=False)
-background = Panel(parent=menu_parent, scale=999, color=color.hex('#218eb4'), z=1)
-
-music_files = [
-    'music/ready-set-drift-michael-grubb-main-version-24555-02-59.mp3',
-    'music/space-ranger-moire-main-version-03-04-10814.mp3',
-    'music/easy-arcade-hartzmann-main-version-28392-02-32.mp3'
-]
-
-# ----- battle logic -----
+# ----- fight logic -----
 def start_fight():
-    global fight_active
+    global fight_active, player_turn, player_health, enemy_health
     fight_active = True
     fight_window.enabled = True
     player.enabled = False
-    fight_text.text = f"Battle! Enemy HP: {enemy_health}"
     fight_background.enabled = True
-    top_wins_counter.enabled=False
+    top_wins_counter.enabled = False
+
+    player_health = 100
+    enemy_health = 100
+    player_health_text.text = f"Player HP: {player_health}"
+    fight_text.text = f"Battle! Enemy HP: {enemy_health}"
+
+    player_turn = True
+    attackoptionsdialogue.enabled = False
 
 def end_fight():
     global fight_active
     fight_active = False
     fight_window.enabled = False
     player.enabled = True
+    attackoptionsdialogue.enabled = False
+    top_wins_counter.enabled = True
+    top_wins_counter.text = f"Wins: {wins}"
 
-def attack():
-    global enemy_health
-    global wins
-    enemy_health -= 20
-    fight_text.text = f'Enemy health: {enemy_health}'
+def attack_player_move(attack_type):
+    global enemy_health, player_turn
+    if not player_turn:
+        return
+
+    if attack_type == "skip":
+        print("Player skipped turn")
+    elif attack_type == "fire":
+        enemy_health -= 25
+    elif attack_type == "push":
+        enemy_health -= 10
+
+    fight_text.text = f"Enemy health: {max(enemy_health,0)}"
+    attackoptionsdialogue.enabled = False
+
     if enemy_health <= 0:
         fight_text.text = "You Win!"
-        wins+=1
+        global wins
+        wins += 1
         print(f"wins: {wins}, wins updated")
         invoke(end_fight, delay=1)
+        return
+
+    player_turn = False
+    invoke(enemy_turn, delay=1)
+
+def enemy_turn():
+    global player_health, player_turn
+    damage = random.randint(5, 15)
+    player_health -= damage
+    player_health_text.text = f"Player HP: {max(player_health,0)}"
+    fight_text.text = f"Enemy attacks! Player takes {damage} damage"
+
+    if player_health <= 0:
+        fight_text.text = "You Lose!"
+        invoke(end_fight, delay=1)
+        return
+
+    player_turn = True
+
+# connect attack buttons
+attack1button.on_click = lambda: attack_player_move("skip")
+attack2button.on_click = lambda: attack_player_move("fire")
+attack3button.on_click = lambda: attack_player_move("push")
+
+# attack button now shows attack options only on player's turn
+def attack_button_click():
+    if fight_active and player_turn and not attackoptionsdialogue.enabled:
+        attackoptionsdialogue.enabled = True
+        attack1button.enabled = True
+        attack2button.enabled = True
+        attack3button.enabled = True
+    elif attackoptionsdialogue.enabled:
+        attackoptionsdialogue.enabled = False
+        attack1button.enabled = False
+        attack2button.enabled = False
+        attack3button.enabled = False
+
+attack_button.on_click = attack_button_click
 
 def run():
     fight_text.text = "You ran away!"
     invoke(end_fight, delay=1)
 
-attack_button.on_click = attack
 run_button.on_click = run
 
 # ----- music -----
+music_files = [
+    'music/ready-set-drift-michael-grubb-main-version-24555-02-59.mp3',
+    'music/space-ranger-moire-main-version-03-04-10814.mp3',
+    'music/easy-arcade-hartzmann-main-version-28392-02-32.mp3'
+]
 music_index = 0
 current_music = None
 volume_slider = None
@@ -188,7 +258,7 @@ def grassgen(num_grass=20, area_size=50):
                        collider='box')
         grass_entities.append(grass)
 
-# ----- trader -----
+# ----- trader logic -----
 def tradercode(move_distance=3, speed=2):
     wandering_trader.position = (player.x, player.y + 2, 0)
     wandering_trader.base_x = player.x
@@ -203,7 +273,6 @@ def tradercode(move_distance=3, speed=2):
 
 # ----- game start -----
 def start_game():
-    global enemy_health, player_health
     menu_parent.enabled = False
     player.enabled = True
     wandering_trader.enabled = True
@@ -212,8 +281,6 @@ def start_game():
     background.enabled = False
     grassgen(150, 12)
     tradercode()
-    enemy_health = 100
-    player_health = 100
     fight_window.enabled = False
     top_wins_counter.enabled = True
 
@@ -247,7 +314,7 @@ def LoadSettingsMenu():
 def update():
     global fight_active
     if menu_parent.enabled:
-        return  # don't allow movement or battles while menu is open
+        return
 
     if player.enabled and wandering_trader.enabled and not fight_active:
         if player.intersects(wandering_trader).hit:
@@ -274,7 +341,11 @@ def update():
         camera.position = lerp(camera.position, (player.x, player.y, -10), time.dt * 5)
         background2.position = (camera.x, camera.y, background2.z)
 
-# init
+# ----- backgrounds -----
+background2 = Entity(model='quad', z=-100, scale=(50, 30), color=color.hex("#615F3C"), enabled=False)
+background = Panel(parent=menu_parent, scale=999, color=color.hex('#218eb4'), z=1)
+
+# ----- init -----
 LoadMainMenu()
 LoadSettingsMenu()
 play_next_song()
