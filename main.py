@@ -10,9 +10,11 @@ menu_parent = Entity()
 settings_menu = Entity(enabled=False)
 grass_entities = []
 fight_window = Entity(parent=camera.ui, enabled=False, z=10)
-coins = 0
+coins = 10
 wandering_traders = []
 current_enemy = None
+better_fireball_counter = 0
+fireball_damage = 25
 
 shop_panel = Panel(
     color=color.hex("#C0D1D2"),
@@ -37,11 +39,35 @@ coinscounter = Text(
 
 print(f'coins: {coins}')
 
+shop_opciones_uno = Button(
+    text=(f'Stronger fireball: Cost: 10 Used: {better_fireball_counter}'),
+    scale=(0.1,0.05),
+    x=-0.15,
+    y=0.07,
+    parent=shop_panel,  # CHANGED: Parent to shop_panel instead of camera.ui
+    color=color.hex("#35752A"),
+    highlight_color=color.lime,
+    pressed_color=color.orange,
+    enabled=False,
+    z=-0.1,  # ADDED: Set z-index to render above the panel
+    font='Bitcountprop.ttf'
+)
+
 def open_shop():
     # Update the coins text before showing the shop
     coinscounter.text = f'Coins: {coins}'
     shop_panel.enabled = True
     print(f"Shop opened! Coins: {coins}")  # Debug print
+    shop_opciones_uno.enabled=True
+    
+def increased_fireball():
+    global coins, better_fireball_counter
+    if coins >= 10:
+        coins -= 10
+        better_fireball_counter += 1
+        print(better_fireball_counter)
+
+shop_opciones_uno.on_click = increased_fireball
 
 shop_button = Button(
     text='Shop',
@@ -54,7 +80,7 @@ shop_button = Button(
     font='Bitcountprop.ttf',
     enabled=True,
     visible=True,
-    z=0
+    z=-0.1
 )
 shop_button.on_click = open_shop
 
@@ -82,6 +108,21 @@ top_wins_counter = Text(
     scale=2,
     font='Bitcountprop.ttf',
 )
+close_shop = Button(
+    text='Close',
+    parent=shop_panel,
+    color=color.hex("#6E8B2B"),
+    scale=(0.1,0.05),
+    x = 0.14,
+    y = -0.08,
+    z = -0.1,
+)
+
+def on_close_shop():
+    shop_panel.enabled=False
+
+close_shop.on_click = on_close_shop
+
 fight_background = Panel(
     parent=fight_window,
     scale=400,
@@ -94,44 +135,43 @@ fight_background = Panel(
 attackoptionsdialogue = Panel(
     parent=fight_window,
     enabled=False,
-    scale=(6, 3),
-    color=color.hex("#333333aa")
+    scale=(0.8, 0.3),
+    color=color.hex("#333333aa"),
+    y=-0.3
 )
 
-attackoptionsdialogue.position = (0, -0.2)
-attackoptionsdialogue.z = -1
-
+# skip turn button
 attack1button = Button(
     parent=attackoptionsdialogue,
     enabled=False,
-    scale=(2, 1),
-    color=color.hex("#b1a022"),
-    text='Skip turn',
-    font='Bitcountprop.ttf'
+    scale=(0.25, 0.2),
+    color=color.hex("#228761"),
+    text='Skip',
+    font='VeraMono.ttf',
+    x=-0.3,
 )
 
+# fire ball button
 attack2button = Button(
     parent=attackoptionsdialogue,
     enabled=False,
-    scale=(2, 1),
-    color=color.hex('#b1a022'),
-    text='Fire ball',
-    font='Bitcountprop.ttf'
+    scale=(0.25, 0.2),
+    color=color.hex("#22b12c"),
+    text='Fire Ball',
+    font='VeraMono.ttf',
 )
 
+# push button
 attack3button = Button(
     parent=attackoptionsdialogue,
     enabled=False,
-    scale=(2, 1),
-    color=color.hex('#b1a022'),
+    scale=(0.25, 0.2),
+    color=color.hex("#b1a022"),
     text='Push',
-    font='Bitcountprop.ttf'
+    font='VeraMono.ttf',
+    x=0.3,
 )
 
-attack1button.position = (-1.2, 0.4)
-attack2button.position = (0, 0.4)
-attack3button.position = (1.2, 0.4)
-attack1button.z = attack2button.z = attack3button.z = -2
 
 attack_button = Button(
     text='Attack',
@@ -244,7 +284,7 @@ def attack_player_move(attack_type):
     if attack_type == "skip":
         print("Player skipped turn")
     elif attack_type == "fire":
-        enemy_health -= 25
+        enemy_health -= fireball_damage
     elif attack_type == "push":
         enemy_health -= 10
 
@@ -404,11 +444,13 @@ def LoadSettingsMenu():
     Button(text='Back', scale=(2.5, 1), y=-2, parent=settings_menu, on_click=back_to_menu)
 
 def update():
-    global fight_active
+    global fight_active, fireball_damage
     if menu_parent.enabled:
         return
 
     update_traders(1.5, 1)
+
+    fireball_damage = 25 + (5 * better_fireball_counter)
 
     for trader in wandering_traders:
         if player.intersects(trader).hit:
