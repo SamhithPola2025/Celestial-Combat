@@ -177,8 +177,8 @@ attack_button = Button(
     text='Attack',
     parent=fight_window,
     y=-0.1,
-    x=-0.6,
-    scale=(0.8,0.8),
+    x=-0.4,
+    scale=(0.4,0.4),
     color=color.azure,
     highlight_color=color.light_gray,
     pressed_color=color.blue,
@@ -188,8 +188,8 @@ run_button = Button(
     text='Run',
     parent=fight_window,
     y=-0.1,
-    x=0.6,
-    scale=(0.8,0.8),
+    x=0.4,
+    scale=(0.4,0.4),
     color=color.red,
     highlight_color=color.light_gray,
     pressed_color=color.blue,
@@ -212,7 +212,7 @@ player_turn = True
 player_health_text = Text(
     f"Player HP: {player_health}",
     origin=(0.5, -0.5),
-    position=(-0.8, 0.45),
+    position=(0.15, 0.45),
     scale=2,
     font='Bitcountprop.ttf'
 )
@@ -230,7 +230,6 @@ def start_fight(enemy):
     enemy_health = 100
     player_health_text.text = f"Player HP: {player_health}"
     fight_text.text = f"Battle! Enemy HP: {enemy_health}"
-    player_health_text.x += 0.32
     player_turn = True
     attackoptionsdialogue.enabled = False
 
@@ -444,7 +443,11 @@ def LoadSettingsMenu():
     Button(text='Back', scale=(2.5, 1), y=-2, parent=settings_menu, on_click=back_to_menu)
 
 def update():
-    global fight_active, fireball_damage
+    global fight_active, fireball_damage, speed
+
+    if held_keys['shift']:
+        speed *= 2 
+
     if menu_parent.enabled:
         return
 
