@@ -1,8 +1,14 @@
 from ursina import *
 import random, math, time
 from save import save_game, load_game
+from PIL import Image
+import numpy as np
+from pathlib import Path
 
 app = Ursina()
+
+def get_downloads_folder():
+    return str(Path.home() / 'Downloads')
 
 camera.orthographic = True
 camera.fov = 10
@@ -11,7 +17,7 @@ menu_parent = Entity()
 settings_menu = Entity(enabled=False)
 grass_entities = []
 fight_window = Entity(parent=camera.ui, enabled=False, z=10)
-coins = 10
+coins = 0
 wandering_traders = []
 current_enemy = None
 better_fireball_counter = 0
@@ -20,6 +26,8 @@ bosses = []
 push_damage = 15
 boss_health = 200
 increased_push_counter = 0
+bananas = []
+show_fps = False
 
 arrow  = Entity(
     model='quad',
@@ -342,6 +350,22 @@ def spawn_wandering_traders(num_traders=3, area_size=20):
         trader.speed = random.uniform(1,3)
         wandering_traders.append(trader)
 
+def spawn_random_heals(area_size=20, numerodeitemas=7):
+    global bananas
+    for b in bananas:
+        destroy(b)
+    bananas.clear()
+    for _ in range(numerodeitemas):
+        x = random.uniform(-area_size, area_size)
+        y = random.uniform(-area_size, area_size)
+        banana = Entity(
+            model='quad',
+            collider='box',
+            scale=(0.3,0.3),
+            color=color.hex("#B99B2CFF"),
+            position=(x,y,0)
+        )
+        bananas.append(banana)
 def update_traders():
     # Normal wandering (only when not in a fight)
     if fight_active:
@@ -355,7 +379,7 @@ def update_traders():
         if offset.length() > max_dist:
             trader.dir = (-offset).normalized()
 
-def repel_others_from_player(radius=5, push_amount=3):
+def repel_others_from_player(radius=5, push_amount=7):
     """Instantly nudge all *other* enemies (and bosses) away from the player."""
     # Traders
     for trader in wandering_traders:
@@ -384,13 +408,19 @@ def repel_others_from_player(radius=5, push_amount=3):
             boss.position += dir_vec * (radius - dist + push_amount)
 
 def end_fight():
-    global fight_active
+    global fight_active, bosses
     fight_active = False
     fight_window.enabled = False
     player.enabled = True
     attackoptionsdialogue.enabled = False
     top_wins_counter.enabled = True
     top_wins_counter.text = f"Wins: {wins}"
+
+    # If player lost, remove all bosses
+    if player_health <= 0:
+        for boss in bosses:
+            destroy(boss)
+        bosses.clear()
 
     # Show arrow again
     arrow.enabled = True
@@ -509,6 +539,48 @@ def play_next_song():
             play_next_song()
     current_music.update = check_end
 
+how_to_play_menu = Entity(enabled=False)
+
+def open_how_to_play():
+    menu_parent.enabled=False
+    how_to_play_menu.enabled=True
+
+def LoadHowToPlayMenu():
+    # title
+    Text(
+        "How to Play",
+        parent=how_to_play_menu,
+        scale=40,
+        y=-1.5,
+        x=-3,
+        font="Bitcountprop.ttf"
+    )
+
+    # instructions
+    Text(
+        "WASD or Arrow keys to move\n"
+        "Shift to sprint\n"
+        "Fight enemies and bosses\n"
+        "Collect coins and bananas\n"
+        "Use shop to upgrade abilities\n"
+        "Win battles to increase your score!",
+        parent=how_to_play_menu,
+        scale=30,
+        y=4,
+        x=-7.5,
+        font="Bitcountprop.ttf"
+    )
+
+    # back button
+    Button(
+        text="Back",
+        parent=how_to_play_menu,
+        y=-4,
+        scale=(3, 1),
+        font="Bitcountprop.ttf",
+        on_click=lambda: [how_to_play_menu.disable(), menu_parent.enable()]
+    )
+
 def grassgen(num_grass=250, area_size=400):
     global grass_entities
     for g in grass_entities: destroy(g)
@@ -536,15 +608,27 @@ def die(entity):
 
     destroy(entity)
 
+def cull_entities(entities, margin=2):
+    cam_x, cam_y = camera.x, camera.y
+    fov_x, fov_y = camera.fov, camera.fov
+    for entity in entities:
+        ex, ey, = entity.x,entity.y
+        if (cam_x-fov_x/2 - margin < ex < cam_x + fov_x/2 + margin and
+            cam_y - fov_y/2 - margin < ey < cam_y + fov_y/2 + margin):
+            entity.enabled = True
+        else:
+            entity.enabled = False
+
 def start_game():
     global coins, wins, better_fireball_counter, player_health
-    coins, wins, better_fireball_counter, player_health = load_game()
+    coins, wins, better_fireball_counter, player_health, increased_push_counter = load_game()
     coinscounter.text = f'Coins: {coins}'
     top_wins_counter.text = f"Wins: {wins}"
     menu_parent.enabled = False
     player.enabled = True
     camera.position = (player.x, player.y, -10)
     spawn_bosses()
+    spawn_random_heals()
 
     background2.enabled = True
     background.enabled = False
@@ -552,7 +636,7 @@ def start_game():
     arrow.visible=True
     arrow.enabled=True
 
-    grassgen(150, 12)
+    grassgen(1000, 12)
     spawn_wandering_traders(num_traders=3, area_size=12)
 
     fight_window.enabled = False
@@ -578,18 +662,31 @@ def LoadMainMenu():
     Button(text='Settings', scale=(2.5, 1), y=-0.5, parent=menu_parent, on_click=open_settings)
     Button(text='Quit', scale=(2.5, 1), y=-2, parent=menu_parent, on_click=quit_game)
 
+def toggle_fullscreen():
+    window.fullscreen = not window.fullscreen
+
+def toggle_fps():
+    global show_fps
+    show_fps = not show_fps
+    window.fps_counter.enabled = show_fps
+
 def LoadSettingsMenu():
     global volume_slider
-    Text("Settings", parent=settings_menu, scale=35, y=2, x=-2, font='Bitcountprop.ttf')
-    volume_slider = Slider(scale=20, min=0, max=1, default=0.5, step=0.1, y=0.1, x=-1, parent=settings_menu)
+    player_health_text.enabled=False
+    Text("Settings", parent=settings_menu, scale=35, y=4.5, x=-2, font='Bitcountprop.ttf')
+    volume_slider = Slider(scale=20, min=0, max=1, default=0.5, step=0.1, y=-2, x=-5, parent=settings_menu)
     def on_volume_change():
         if current_music: current_music.volume = volume_slider.value
     volume_slider.on_value_changed = on_volume_change
-    Text("Volume", parent=settings_menu, y=-0.5, scale=10, x=-0.5, font='Bitcountprop.ttf')
-    Button(text='Back', scale=(2.5, 1), y=-2, parent=settings_menu, on_click=back_to_menu)
+    Text("Volume", parent=settings_menu, y=-0.5, scale=20, x=-0.8, font='Bitcountprop.ttf')
+    Button(text='Back', scale=(2.5, 1), y=-3.5, parent=settings_menu, on_click=back_to_menu)
+    Button(text='Fullscreen',parent=settings_menu,y=2.5,scale=(3,1),x=0,font='Bitcountprop.ttf',color=color.azure, on_click=toggle_fullscreen)
+    Button(text='Show FPS', parent=settings_menu, y=0.5, x=0, scale=(3, 1), font='Bitcountprop.ttf', on_click=lambda: toggle_fps())
+    Button(text='How to Play', scale=(3, 1), y=-3.5, parent=menu_parent, on_click=open_how_to_play)
 
 def update():
-    # Arrow/boss movement only when not in fight
+    global player_health, coins, bosses
+    print('initialized global variables in the update function')
     if bosses:
         if arrow.enabled:
             nearest_boss = min(bosses, key=lambda b: (b.position - player.position).length())
@@ -599,15 +696,23 @@ def update():
 
         update_bosses_location()
 
-    # No early return if no bosses — we still need the rest of the game to run
+    cull_entities(grass_entities)
+    cull_entities(wandering_traders)
+    cull_entities(bosses)
+    cull_entities(bananas)
+
+    for banana in bananas[:]:
+        if player.intersects(banana).hit:
+            player_health += 20
+            destroy(banana)
+            bananas.remove(banana)
+            player_health_text.text=f"Player health: {player_health}"
 
     if menu_parent.enabled:
         return
 
-    # Traders wander only when not in a fight
     update_traders()
 
-    # While fighting, continuously repel others to keep space
     if fight_active:
         repel_others_from_player(radius=5, push_amount=2)
 
@@ -617,7 +722,14 @@ def update():
     global push_damage
     push_damage = 15 + (5 * increased_push_counter)
 
-    # Only allow new fights when not already fighting
+    if coins >= 10: 
+        print("highlighting now")
+        shop_opciones_uno.color=color.hex("#B0C038")
+
+    if coins >= 6:
+        print("highlightning now")
+        shop_opciones_dos.color=color.hex('#B0C038')
+
     if not fight_active and player.enabled:
         for trader in wandering_traders:
             if player.intersects(trader).hit:
@@ -629,14 +741,13 @@ def update():
                 start_fight(boss, is_boss=True)
                 break
 
-    # Player movement (only when not fighting)
     if player.enabled and not fight_active:
         x = int(held_keys['d']) - int(held_keys['a'])
         y = int(held_keys['w']) - int(held_keys['s'])
         move = Vec2(x, y)
 
         speed = playerspeed
-        # slow down in grass
+
         for grass in grass_entities:
             if player.intersects(grass).hit:
                 speed *= 0.6
@@ -658,6 +769,7 @@ background2 = Entity(model='quad', z=1, scale=(50, 30), color=color.hex("#615F3C
 background = Panel(parent=menu_parent, scale=999, color=color.hex('#218eb4'), z=1)
 
 LoadMainMenu()
+LoadHowToPlayMenu()
 LoadSettingsMenu()
 play_next_song()
 
